@@ -15,12 +15,11 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: validate   # Flyway owns the schema; Hibernate only validates
-    open-in-view: false    # Prevents DB queries during view rendering
+      ddl-auto: validate
+    open-in-view: false
     show-sql: false
     properties:
       hibernate:
-        # Do NOT set dialect explicitly — Hibernate 6 auto-detects from JDBC URL
         format_sql: true
         default_batch_fetch_size: 50
         jdbc:
@@ -58,6 +57,13 @@ app:
     jwt:
       secret: ${JWT_SECRET:CHANGE_THIS_IN_PRODUCTION_USE_256_BIT_KEY_AT_MINIMUM_32_CHARS}
       expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+
+# ===============================
+# 🔐 SPACE-TRACK (NEW)
+# ===============================
+space-track:
+  username: ${SPACE_TRACK_USERNAME}
+  password: ${SPACE_TRACK_PASSWORD}
 
 resilience4j:
   ratelimiter:

@@ -11,9 +11,12 @@ import org.springframework.stereotype.Component;
 /**
  * Scheduled TLE refresh and maintenance tasks.
  *
- * TLE refresh every 6 hours matches CelesTrak's update frequency.
- * Initial delay of 30s allows the DB/connection pool to fully start
- * before making external HTTP calls.
+ * ⚠️ Production note:
+ * This application uses an ON-DEMAND TLE strategy.
+ * The scheduled refresh is kept ONLY for:
+ *  - future batch refresh enablement
+ *  - clearing WebSocket no-TLE cache
+ *  - historical TLE maintenance
  */
 @Component
 @RequiredArgsConstructor
@@ -25,25 +28,32 @@ public class TleRefreshScheduler {
     private final SatelliteWebSocketController wsController;
 
     /**
-     * Refresh all TLE groups every 6 hours.
-     * Initial delay: 30s (let app fully start before hitting external APIs).
+     * Runs every 6 hours.
+     *
+     * Current behavior:
+     * - Does NOT fetch external APIs aggressively
+     * - Keeps scheduler wiring intact
+     * - Clears WebSocket no-TLE cache
      */
     @Scheduled(initialDelay = 30_000, fixedRate = 6 * 60 * 60 * 1000)
     public void refreshTles() {
-        log.info("=== Scheduled TLE refresh starting ===");
+        log.info("=== Scheduled TLE maintenance cycle ===");
         try {
+            // Safe no-op unless batch refresh is enabled later
             tleFetcherService.refreshAllTles();
-            // Notify WebSocket broadcaster that new TLEs may now be available
+
+            // Allow WebSocket broadcaster to retry satellites
             wsController.onTleRefreshComplete();
+
         } catch (Exception e) {
-            log.error("Scheduled TLE refresh failed", e);
-            // Don't rethrow — scheduler must continue running for next cycle
+            log.error("Scheduled TLE maintenance failed", e);
+            // Never rethrow — scheduler must stay alive
         }
     }
 
     /**
-     * Prune old TLE records daily at 3 AM UTC.
-     * Keeps last 10 TLE epochs per satellite for historical replay.
+     * Prune old TLE history.
+     * Keeps last N epochs per satellite (default: 10).
      */
     @Scheduled(cron = "0 0 3 * * *", zone = "UTC")
     public void pruneOldTles() {
