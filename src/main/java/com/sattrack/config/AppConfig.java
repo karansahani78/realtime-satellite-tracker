@@ -1,11 +1,15 @@
 package com.sattrack.config;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
+import io.netty.channel.ChannelOption;
+import io.netty.resolver.DefaultAddressResolverGroup;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.caffeine.CaffeineCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.netty.http.client.HttpClient;
+import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
@@ -14,22 +18,21 @@ import java.util.concurrent.TimeUnit;
  * Cache and HTTP client configuration.
  *
  * Cache TTL rationale:
- * - currentPosition (10s): Satellites move ~7 km/s; 10s ≈ 70 km position error max
- * - predictedPosition (60s): Future positions change more slowly relative to cached time
- * - trackData (300s): Multi-point tracks are CPU-intensive; 5min staleness acceptable
- * - satellites (600s): Satellite metadata rarely changes
- * - satelliteSearch (120s): Search results stable over short periods
- *
- * All caches are bounded to prevent memory exhaustion under load.
+ * - currentPosition (10s): Satellites move ~7 km/s; 10s ≈ 70 km error max
+ * - predictedPosition (60s): Future positions change slower
+ * - trackData (300s): CPU-heavy, short staleness acceptable
+ * - satellites (600s): Metadata rarely changes
+ * - satelliteSearch (120s): Stable search results
  */
 @Configuration
 public class AppConfig {
+
+    /* ===================== CACHE CONFIG ===================== */
 
     @Bean
     public CacheManager cacheManager() {
         CaffeineCacheManager manager = new CaffeineCacheManager();
 
-        // Named caches with different TTLs
         manager.registerCustomCache("currentPosition",
                 Caffeine.newBuilder()
                         .expireAfterWrite(10, TimeUnit.SECONDS)
@@ -60,15 +63,32 @@ public class AppConfig {
                         .expireAfterWrite(2, TimeUnit.MINUTES)
                         .maximumSize(500)
                         .build());
+        // ADD BELOW existing caches
+        manager.registerCustomCache("tleFetchCooldown",
+                Caffeine.newBuilder()
+                        .expireAfterWrite(10, TimeUnit.MINUTES) // ⏳ BACKOFF
+                        .maximumSize(50_000)
+                        .build());
 
         return manager;
     }
 
+    /* ===================== WEBCLIENT (FIXED) ===================== */
+
     @Bean
     public WebClient webClient() {
+
+        HttpClient httpClient = HttpClient.create()
+                // ✅ FORCE IPV4 DNS (FIXES N2YO + CELESTRAK)
+                .resolver(DefaultAddressResolverGroup.INSTANCE)
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 15_000)
+                .responseTimeout(Duration.ofSeconds(30));
+
         return WebClient.builder()
+                .clientConnector(new ReactorClientHttpConnector(httpClient))
                 .defaultHeader("User-Agent", "SatTrack-Platform/1.0 (github.com/sattrack)")
-                .codecs(codecs -> codecs.defaultCodecs().maxInMemorySize(10 * 1024 * 1024)) // 10MB
+                .codecs(codecs ->
+                        codecs.defaultCodecs().maxInMemorySize(10 * 1024 * 1024))
                 .build();
     }
 }

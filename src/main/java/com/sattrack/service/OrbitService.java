@@ -11,6 +11,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.Cache;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -28,6 +30,7 @@ public class OrbitService {
     private final Sgp4Propagator propagator;
     private final TleRepository tleRepository;
     private final TleFetcherService tleFetcherService;
+    private final CacheManager cacheManager;
 
     private static final double TWO_PI = 2.0 * Math.PI;
 
@@ -163,26 +166,36 @@ public class OrbitService {
      * on the existing future rather than starting a duplicate fetch.
      */
     private void fetchWithDedup(String noradId) {
+
+        Cache cooldown = cacheManager.getCache("tleFetchCooldown");
+
+        // 🚫 COOLDOWN CHECK
+        if (cooldown != null && cooldown.get(noradId) != null) {
+            log.debug("TLE fetch for {} is in cooldown, skipping", noradId);
+            return;
+        }
+
         CompletableFuture<Void> myFuture = new CompletableFuture<>();
         CompletableFuture<Void> existing = inFlightFetches.putIfAbsent(noradId, myFuture);
 
         if (existing != null) {
-            // Another thread is already fetching — just wait for it
             log.debug("Fetch already in-flight for NORAD {}, waiting...", noradId);
             try {
                 existing.get(35, TimeUnit.SECONDS);
-            } catch (Exception e) {
-                log.debug("Wait for in-flight fetch of {} interrupted: {}", noradId, e.getMessage());
+            } catch (Exception ignored) {}
+            return;
+        }
+
+        try {
+            boolean success = tleFetcherService.fetchSingleSatellite(noradId);
+
+            if (!success && cooldown != null) {
+                cooldown.put(noradId, Boolean.TRUE); // ⛔ BACKOFF
             }
-        } else {
-            // We won the race — we do the actual fetch
-            try {
-                tleFetcherService.fetchSingleSatellite(noradId);
-            } finally {
-                // Always clean up and unblock waiting threads
-                inFlightFetches.remove(noradId);
-                myFuture.complete(null);
-            }
+
+        } finally {
+            inFlightFetches.remove(noradId);
+            myFuture.complete(null);
         }
     }
 

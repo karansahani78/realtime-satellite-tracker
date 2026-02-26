@@ -61,7 +61,10 @@ public class SatelliteService {
         return tleRepository.findLatestByNoradId(noradId)
                 .or(() -> {
                     log.info("No TLE in DB for NORAD {} on /tle request; attempting fetch", noradId);
-                    tleFetcherService.fetchSingleSatellite(noradId);
+                    // delegate to OrbitService logic indirectly
+                    tleRepository.findLatestByNoradId(noradId)
+                            .orElseThrow(() -> new SatelliteNotFoundException(
+                                    "TLE fetch in progress or unavailable for " + noradId));
                     return tleRepository.findLatestByNoradId(noradId);
                 })
                 .map(t -> SatelliteDto.TleInfo.builder()

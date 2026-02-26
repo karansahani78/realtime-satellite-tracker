@@ -9,14 +9,17 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
- * Scheduled TLE refresh and maintenance tasks.
+ * Scheduled TLE maintenance tasks.
  *
- * ⚠️ Production note:
- * This application uses an ON-DEMAND TLE strategy.
- * The scheduled refresh is kept ONLY for:
- *  - future batch refresh enablement
- *  - clearing WebSocket no-TLE cache
- *  - historical TLE maintenance
+ * ⚠️ IMPORTANT DESIGN NOTE
+ * ----------------------------------
+ * This system uses an ON-DEMAND TLE strategy.
+ *
+ * Scheduler is SAFE by design:
+ *  - ❌ No aggressive external API calls
+ *  - ✅ Clears WebSocket no-TLE suppression cache
+ *  - ✅ Prunes old historical data
+ *  - ✅ Keeps batch-refresh wiring intact
  */
 @Component
 @RequiredArgsConstructor
@@ -28,39 +31,38 @@ public class TleRefreshScheduler {
     private final SatelliteWebSocketController wsController;
 
     /**
-     * Runs every 6 hours.
-     *
-     * Current behavior:
-     * - Does NOT fetch external APIs aggressively
-     * - Keeps scheduler wiring intact
-     * - Clears WebSocket no-TLE cache
+     * Maintenance cycle — every 6 hours.
      */
-    @Scheduled(initialDelay = 30_000, fixedRate = 6 * 60 * 60 * 1000)
-    public void refreshTles() {
+    @Scheduled(
+            initialDelayString = "PT30S",
+            fixedDelayString = "PT6H"
+    )
+    public void maintenanceCycle() {
         log.info("=== Scheduled TLE maintenance cycle ===");
         try {
-            // Safe no-op unless batch refresh is enabled later
+            // Explicit no-op unless bulk refresh is enabled
             tleFetcherService.refreshAllTles();
 
             // Allow WebSocket broadcaster to retry satellites
             wsController.onTleRefreshComplete();
 
         } catch (Exception e) {
+            // NEVER rethrow — scheduler must survive forever
             log.error("Scheduled TLE maintenance failed", e);
-            // Never rethrow — scheduler must stay alive
         }
     }
 
     /**
-     * Prune old TLE history.
-     * Keeps last N epochs per satellite (default: 10).
+     * Prune historical TLE records.
+     * Keeps last N epochs per satellite.
+     * Runs daily at 03:00 UTC.
      */
     @Scheduled(cron = "0 0 3 * * *", zone = "UTC")
     public void pruneOldTles() {
         log.info("Starting TLE history pruning");
         try {
             int deleted = tleRepository.pruneOldTles(10);
-            log.info("Pruned {} old TLE records", deleted);
+            log.info("TLE pruning completed — {} records removed", deleted);
         } catch (Exception e) {
             log.error("TLE pruning failed", e);
         }
