@@ -15,6 +15,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -38,95 +39,110 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        return http
-                // JWT = Stateless → CSRF disabled
+
+        http
+                // Stateless JWT → disable CSRF
                 .csrf(AbstractHttpConfigurer::disable)
 
-                // CORS
+                // Enable CORS
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
-                // Stateless session
+                // No sessions (JWT only)
                 .sessionManagement(sm ->
                         sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
-                // Authorization rules
                 .authorizeHttpRequests(auth -> auth
-                        // ---- PUBLIC ----
-                        .requestMatchers("/api/auth/login", "/api/auth/register").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/satellites/**").permitAll()
-                        .requestMatchers("/actuator/health", "/actuator/info").permitAll()
-                        .requestMatchers("/ws/**").permitAll()
 
-                        // ---- PROTECTED ----
+                        // 🔥 IMPORTANT → allow preflight
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        // ── AUTH ─────────────────────────────────────────────
+                        .requestMatchers("/api/auth/login", "/api/auth/register").permitAll()
                         .requestMatchers("/api/auth/profile").authenticated()
 
-                        // ---- EVERYTHING ELSE ----
+                        // ── V1 Satellite ─────────────────────────────────────
+                        .requestMatchers(HttpMethod.GET, "/api/satellites/**").permitAll()
+
+                        // ── WebSocket ────────────────────────────────────────
+                        .requestMatchers("/ws/**").permitAll()
+
+                        // ── Actuator ─────────────────────────────────────────
+                        .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+
+                        // ── V2 Public APIs ───────────────────────────────────
+                        .requestMatchers(HttpMethod.POST, "/api/v1/passes/predict").permitAll()
+                        .requestMatchers(HttpMethod.GET,  "/api/v1/passes/satellite/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/doppler/**").permitAll()
+                        .requestMatchers(HttpMethod.GET,  "/api/v1/conjunctions/**").permitAll()
+
+                        // ── V2 Auth Required ────────────────────────────────
+                        .requestMatchers("/api/v1/notifications/**").authenticated()
+                        .requestMatchers("/api/v1/alerts/**").authenticated()
+
+                        // Everything else → secure
                         .anyRequest().authenticated()
                 )
 
-                // Authentication
                 .authenticationProvider(authenticationProvider())
 
-                // JWT filter
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
-                .build();
+        return http.build();
     }
 
-    // ---------------- CORS ----------------
+    // ✅ Proper CORS for frontend
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
+
         CorsConfiguration config = new CorsConfiguration();
 
-        // ⚠️ In production, replace "*" with your frontend URL
-        config.setAllowedOriginPatterns(List.of("*"));
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        config.setAllowedOrigins(List.of("http://localhost:3000"));
+        config.setAllowedMethods(List.of("GET","POST","PUT","PATCH","DELETE","OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setExposedHeaders(List.of("Authorization"));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
 
-        UrlBasedCorsConfigurationSource source =
-                new UrlBasedCorsConfigurationSource();
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
+
         return source;
     }
 
-    // ---------------- USER DETAILS ----------------
+    // UserDetails
     @Bean
     public UserDetailsService userDetailsService() {
         return username -> userRepository.findByUsername(username)
-                .map(user -> org.springframework.security.core.userdetails.User.builder()
+                .map(user -> User.builder()
                         .username(user.getUsername())
                         .password(user.getPasswordHash())
-                        .authorities(user.getRole())
+                        // ✅ Ensure ROLE_ prefix
+                        .authorities("ROLE_" + user.getRole())
                         .disabled(!user.isEnabled())
                         .build())
                 .orElseThrow(() ->
                         new UsernameNotFoundException("User not found: " + username));
     }
 
-    // ---------------- AUTH PROVIDER ----------------
+    // Authentication provider
     @Bean
     public AuthenticationProvider authenticationProvider() {
-        DaoAuthenticationProvider provider =
-                new DaoAuthenticationProvider();
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
         provider.setUserDetailsService(userDetailsService());
         provider.setPasswordEncoder(passwordEncoder());
         return provider;
     }
 
-    // ---------------- AUTH MANAGER ----------------
+    // Auth manager
     @Bean
     public AuthenticationManager authenticationManager(
             AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
     }
 
-    // ---------------- PASSWORD ----------------
+    // Password encoder
     @Bean
     public PasswordEncoder passwordEncoder() {
-        // BCrypt strength 12 = secure + fast enough
         return new BCryptPasswordEncoder(12);
     }
 }

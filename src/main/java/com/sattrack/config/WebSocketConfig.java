@@ -17,6 +17,13 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
  *
  * For production at scale, replace the in-memory broker with RabbitMQ or
  * Kafka STOMP adapter so multiple backend instances can share state.
+ *
+ * CHANGES FROM ORIGINAL:
+ *  1. Added "/queue" to enableSimpleBroker — required for per-user
+ *     queues used by NotificationService.convertAndSendToUser()
+ *  2. Added setUserDestinationPrefix("/user") — Spring needs this to
+ *     route convertAndSendToUser() to the correct subscriber.
+ *     Without it, user-targeted messages are silently dropped.
  */
 @Configuration
 @EnableWebSocketMessageBroker
@@ -24,9 +31,16 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
-        // In-memory broker for simple deployment; upgrade to /rabbitmq for scale
-        registry.enableSimpleBroker("/topic");
+        // "/topic" = broadcast (one-to-many, e.g. conjunction alerts)
+        // "/queue"  = per-user (one-to-one, e.g. personal pass notifications)
+        registry.enableSimpleBroker("/topic", "/queue");
+
+        // Prefix for messages FROM client TO server (@MessageMapping methods)
         registry.setApplicationDestinationPrefixes("/app");
+
+        // Required for convertAndSendToUser(userId, "/queue/notifications", ...)
+        // to resolve to "/user/{userId}/queue/notifications"
+        registry.setUserDestinationPrefix("/user");
     }
 
     @Override

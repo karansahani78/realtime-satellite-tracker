@@ -34,8 +34,45 @@ spring:
     user: ${DB_USER:postgres}
     password: ${DB_PASSWORD:postgres}
 
+  # =========================================================
+  # TASK EXECUTION / SCHEDULING
+  # =========================================================
+  task:
+    scheduling:
+      pool:
+        size: 4
+    execution:
+      pool:
+        core-size: 4
+        max-size: 16
+        queue-capacity: 100
+
+  # =========================================================
+  # EMAIL (SMTP)
+  # =========================================================
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USER}
+    password: ${MAIL_PASS}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+
+  # =========================================================
+  # CACHING
+  # =========================================================
   cache:
     type: caffeine
+    caffeine:
+      spec: maximumSize=500,expireAfterWrite=300s
 
 server:
   port: ${PORT:8080}
@@ -63,9 +100,23 @@ app:
       expiration-ms: ${JWT_EXPIRATION_MS:86400000}
 
 # =========================================================
+# APP-SPECIFIC MAIL SETTINGS
+# =========================================================
+sattrack:
+  mail:
+    from: ${MAIL_USER}
+    base-url: https://sattrack.app
+
+# =========================================================
+# OREKIT DATA
+# =========================================================
+orekit:
+  data:
+    path: orekit-data
+
+# =========================================================
 # TLE PROVIDERS
 # =========================================================
-
 space-track:
   username: ${SPACE_TRACK_USERNAME:}
   password: ${SPACE_TRACK_PASSWORD:}
@@ -76,7 +127,6 @@ n2yo:
 # =========================================================
 # RATE LIMITING
 # =========================================================
-
 resilience4j:
   ratelimiter:
     instances:
@@ -96,7 +146,6 @@ resilience4j:
 # =========================================================
 # LOGGING
 # =========================================================
-
 logging:
   level:
     root: INFO
