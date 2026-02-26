@@ -1,5 +1,6 @@
 package com.sattrack.exception;
 
+import io.github.resilience4j.ratelimiter.RequestNotPermitted;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -13,15 +14,20 @@ import java.net.URI;
 import java.time.Instant;
 import java.util.stream.Collectors;
 
-/**
- * Centralized error handling using RFC 7807 Problem Details (ProblemDetail).
- * Returns machine-readable error responses consumable by any client.
- *
- * Spring 6 / Boot 3 ships ProblemDetail natively; no external library needed.
- */
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(RequestNotPermitted.class)
+    public ResponseEntity<ProblemDetail> handleRateLimit(RequestNotPermitted ex) {
+        log.warn("Rate limit exceeded: {}", ex.getMessage());
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.TOO_MANY_REQUESTS,
+                "Rate limit exceeded. Please slow down.");
+        pd.setTitle("Too Many Requests");
+        pd.setType(URI.create("https://sattrack.io/errors/rate-limit-exceeded"));
+        pd.setProperty("timestamp", Instant.now());
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(pd);
+    }
 
     @ExceptionHandler(SatelliteNotFoundException.class)
     public ResponseEntity<ProblemDetail> handleSatelliteNotFound(SatelliteNotFoundException ex) {

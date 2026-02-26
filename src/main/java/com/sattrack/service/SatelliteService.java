@@ -25,16 +25,14 @@ public class SatelliteService {
 
     private final SatelliteRepository satelliteRepository;
     private final TleRepository tleRepository;
+    private final TleFetcherService tleFetcherService;
 
     @Cacheable(value = "satellites", key = "'page:' + #page + ':' + #size + ':' + #category")
-    public Page<SatelliteDto.SatelliteSummary> listSatellites(
-            int page, int size, String category) {
-
+    public Page<SatelliteDto.SatelliteSummary> listSatellites(int page, int size, String category) {
         PageRequest pageable = PageRequest.of(page, size, Sort.by("name"));
         Page<Satellite> entities = (category != null && !category.isBlank())
                 ? satelliteRepository.findByCategoryAndActiveTrue(category, pageable)
                 : satelliteRepository.findByActiveTrue(pageable);
-
         return entities.map(this::toSummary);
     }
 
@@ -54,8 +52,18 @@ public class SatelliteService {
         return satelliteRepository.findDistinctCategories();
     }
 
+    /**
+     * Override class-level readOnly=true — this method triggers a write
+     * (TLE fetch + persist) when no TLE exists in DB yet.
+     */
+    @Transactional(readOnly = false)
     public SatelliteDto.TleInfo getLatestTle(String noradId) {
         return tleRepository.findLatestByNoradId(noradId)
+                .or(() -> {
+                    log.info("No TLE in DB for NORAD {} on /tle request; attempting fetch", noradId);
+                    tleFetcherService.fetchSingleSatellite(noradId);
+                    return tleRepository.findLatestByNoradId(noradId);
+                })
                 .map(t -> SatelliteDto.TleInfo.builder()
                         .noradId(t.getNoradId())
                         .line1(t.getLine1())
@@ -69,9 +77,7 @@ public class SatelliteService {
     }
 
     private SatelliteDto.SatelliteSummary toSummary(Satellite s) {
-        // Get latest TLE epoch without triggering full collection load
         TleRecord latestTle = tleRepository.findLatestByNoradId(s.getNoradId()).orElse(null);
-
         return SatelliteDto.SatelliteSummary.builder()
                 .id(s.getId())
                 .noradId(s.getNoradId())

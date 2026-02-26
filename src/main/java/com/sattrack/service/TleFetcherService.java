@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -35,28 +36,30 @@ public class TleFetcherService {
     @Value("${space-track.password:}")
     private String password;
 
-    // ================== CELESTRAK (PRIMARY) ==================
+    /* ============================================================
+       ENDPOINTS
+       ============================================================ */
+
+    // NOTE: CelesTrak is currently unreachable on some networks.
+    // Kept here for future use or different deployment environments.
     private static final String CELESTRAK_TLE =
             "https://celestrak.org/NORAD/elements/gp.php?CATNR=%s&FORMAT=TLE";
 
-    // ================== SPACE-TRACK (FALLBACK) ==================
-    private static final String LOGIN_URL =
+    private static final String SPACE_TRACK_LOGIN =
             "https://www.space-track.org/ajaxauth/login";
 
+    // ✅ FIXED: Use tle_latest (old /class/tle endpoint returns 404)
     private static final String SPACE_TRACK_TLE =
             "https://www.space-track.org/basicspacedata/query" +
-                    "/class/tle/NORAD_CAT_ID/%s/orderby/EPOCH desc/limit/1/format/tle";
+                    "/class/tle_latest/NORAD_CAT_ID/%s/format/tle";
 
     /* ============================================================
-       SCHEDULER COMPATIBILITY (🔥 FIXES YOUR COMPILATION ERROR)
+       SCHEDULER HOOK
        ============================================================ */
 
-    /**
-     * Required by TleRefreshScheduler.
-     * Production strategy = on-demand fetch only.
-     */
     @Transactional
     public void refreshAllTles() {
+        // Intentionally no-op
         log.info("Scheduled TLE refresh skipped (on-demand strategy enabled)");
     }
 
@@ -65,22 +68,20 @@ public class TleFetcherService {
        ============================================================ */
 
     /**
-     * Fetch TLE for one satellite (on-demand).
+     * NOT transactional:
+     * HTTP calls must never hold DB connections.
      */
-    @Transactional
     public boolean fetchSingleSatellite(String noradId) {
-
-        // 1️⃣ Try CelesTrak first (no auth, fastest)
+        // CelesTrak first (if reachable)
         if (fetchFromCelestrak(noradId)) {
             return true;
         }
-
-        // 2️⃣ Fallback to Space-Track (only if creds exist)
+        // Reliable fallback
         return fetchFromSpaceTrack(noradId);
     }
 
     /* ============================================================
-       CELESTRAK (PRIMARY)
+       CELESTRAK (OPTIONAL)
        ============================================================ */
 
     private boolean fetchFromCelestrak(String noradId) {
@@ -89,13 +90,12 @@ public class TleFetcherService {
                     .uri(String.format(CELESTRAK_TLE, noradId))
                     .retrieve()
                     .bodyToMono(String.class)
-                    .timeout(Duration.ofSeconds(15))
+                    .timeout(Duration.ofSeconds(30))
                     .block();
 
             if (raw == null || raw.isBlank()) return false;
 
-            List<TleRaw> parsed = parse(raw);
-            int saved = persist(parsed, "celestrak");
+            int saved = persistTles(parse(raw), "celestrak");
 
             if (saved > 0) {
                 log.info("Fetched TLE for {} from CelesTrak", noradId);
@@ -108,11 +108,13 @@ public class TleFetcherService {
     }
 
     /* ============================================================
-       SPACE-TRACK (FALLBACK ONLY)
+       SPACE-TRACK (PRIMARY / RELIABLE)
        ============================================================ */
 
     private boolean fetchFromSpaceTrack(String noradId) {
-        if (username == null || username.isBlank()) return false;
+        if (username == null || username.isBlank()) {
+            return false;
+        }
 
         try {
             String cookie = authenticate();
@@ -124,18 +126,22 @@ public class TleFetcherService {
                     .header(HttpHeaders.USER_AGENT, "Mozilla/5.0")
                     .retrieve()
                     .bodyToMono(String.class)
-                    .timeout(Duration.ofSeconds(20))
+                    .timeout(Duration.ofSeconds(40))
                     .block();
 
             if (raw == null || raw.isBlank()) return false;
 
-            List<TleRaw> parsed = parse(raw);
-            return persist(parsed, "space-track") > 0;
+            int saved = persistTles(parse(raw), "space-track");
+
+            if (saved > 0) {
+                log.info("Fetched TLE for {} from Space-Track", noradId);
+                return true;
+            }
 
         } catch (Exception e) {
             log.debug("Space-Track failed for {}: {}", noradId, e.getMessage());
-            return false;
         }
+        return false;
     }
 
     private String authenticate() {
@@ -145,13 +151,14 @@ public class TleFetcherService {
             form.add("password", password);
 
             return webClient.post()
-                    .uri(LOGIN_URL)
+                    .uri(SPACE_TRACK_LOGIN)
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                     .bodyValue(form)
                     .retrieve()
                     .toBodilessEntity()
                     .map(resp -> resp.getHeaders().getFirst(HttpHeaders.SET_COOKIE))
                     .block();
+
         } catch (Exception e) {
             log.debug("Space-Track login failed: {}", e.getMessage());
             return null;
@@ -159,7 +166,7 @@ public class TleFetcherService {
     }
 
     /* ============================================================
-       PARSING & STORAGE
+       PARSING
        ============================================================ */
 
     List<TleRaw> parse(String raw) {
@@ -180,7 +187,15 @@ public class TleFetcherService {
         return list;
     }
 
-    private int persist(List<TleRaw> entries, String source) {
+    /* ============================================================
+       PERSISTENCE
+       ============================================================ */
+
+    /**
+     * Always uses its own write transaction.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public int persistTles(List<TleRaw> entries, String source) {
         int saved = 0;
 
         for (TleRaw e : entries) {
@@ -215,8 +230,9 @@ public class TleFetcherService {
                         .build());
 
                 saved++;
+
             } catch (Exception ex) {
-                log.debug("TLE persist failed: {}", ex.getMessage());
+                log.warn("TLE persist failed: {}", ex.getMessage());
             }
         }
         return saved;

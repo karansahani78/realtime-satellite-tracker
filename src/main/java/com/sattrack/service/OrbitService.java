@@ -2,7 +2,6 @@ package com.sattrack.service;
 
 import com.sattrack.dto.SatelliteDto;
 import com.sattrack.entity.TleRecord;
-import com.sattrack.exception.SatelliteNotFoundException;
 import com.sattrack.exception.TleNotFoundException;
 import com.sattrack.repository.TleRepository;
 import com.sattrack.util.CoordinateConverter;
@@ -17,20 +16,10 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
-/**
- * Computes satellite positions using SGP4 propagation.
- *
- * Caching strategy:
- * - Current position: 10s TTL (fresh enough for real-time display)
- * - Predicted positions: 60s TTL (future positions change slowly)
- * - Track data: 300s TTL (multi-point tracks are expensive to compute)
- *
- * WHY not cache forever? TLEs are refreshed every 6 hours; any cached
- * position based on an old TLE becomes incorrect after a TLE update.
- * The short TTL ensures eventual consistency without a cache invalidation
- * event bus (which would add infrastructure complexity).
- */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -42,10 +31,10 @@ public class OrbitService {
 
     private static final double TWO_PI = 2.0 * Math.PI;
 
-    /**
-     * Get the current position of a satellite.
-     * Cache key: noradId + truncated-to-10s timestamp for freshness.
-     */
+    // Only one fetch per NORAD ID in-flight at a time
+    private final ConcurrentHashMap<String, CompletableFuture<Void>> inFlightFetches =
+            new ConcurrentHashMap<>();
+
     @Cacheable(value = "currentPosition", key = "#noradId + ':' + T(java.time.Instant).now().truncatedTo(T(java.time.temporal.ChronoUnit).SECONDS).epochSecond / 10")
     public SatelliteDto.SatellitePosition getCurrentPosition(
             String noradId,
@@ -55,9 +44,6 @@ public class OrbitService {
         return getPositionAt(noradId, Instant.now(), observerLat, observerLon);
     }
 
-    /**
-     * Predict satellite position at a future (or past) time.
-     */
     @Cacheable(value = "predictedPosition", key = "#noradId + ':' + #targetTime.epochSecond")
     public SatelliteDto.SatellitePosition getPositionAt(
             String noradId,
@@ -99,16 +85,8 @@ public class OrbitService {
                 .build();
     }
 
-    /**
-     * Compute a track (list of positions) between two times.
-     *
-     * @param noradId       satellite identifier
-     * @param start         start of track window
-     * @param end           end of track window
-     * @param intervalSecs  seconds between track points
-     */
     @Cacheable(value = "trackData",
-               key = "#noradId + ':' + #start.epochSecond + ':' + #end.epochSecond + ':' + #intervalSecs")
+            key = "#noradId + ':' + #start.epochSecond + ':' + #end.epochSecond + ':' + #intervalSecs")
     public SatelliteDto.TrackResponse computeTrack(
             String noradId, Instant start, Instant end, int intervalSecs) {
 
@@ -119,7 +97,7 @@ public class OrbitService {
         if (durationSecs <= 0) {
             throw new IllegalArgumentException("End time must be after start time");
         }
-        int maxPoints = 1440;  // max 1440 points per track request
+        int maxPoints = 1440;
         long actualInterval = Math.max(intervalSecs, durationSecs / maxPoints);
 
         TleRecord tle = getLatestTle(noradId);
@@ -153,9 +131,6 @@ public class OrbitService {
                 .build();
     }
 
-    /**
-     * Compute next N minutes of positions (convenience for predict API).
-     */
     public SatelliteDto.PredictionResponse predictAhead(
             String noradId, int minutes, Double obsLat, Double obsLon) {
 
@@ -171,18 +146,44 @@ public class OrbitService {
                 .build();
     }
 
-    /**
-     * Retrieve latest TLE or attempt on-demand fetch if missing.
-     */
     private TleRecord getLatestTle(String noradId) {
         return tleRepository.findLatestByNoradId(noradId)
                 .orElseGet(() -> {
                     log.info("No TLE found for NORAD {}; attempting on-demand fetch", noradId);
-                    boolean fetched = tleFetcherService.fetchSingleSatellite(noradId);
+                    fetchWithDedup(noradId);
                     return tleRepository.findLatestByNoradId(noradId)
                             .orElseThrow(() -> new TleNotFoundException(
                                     "No TLE data available for satellite " + noradId));
                 });
+    }
+
+    /**
+     * Ensures only ONE fetch runs per NORAD ID at a time.
+     * Other callers that arrive while a fetch is in-flight simply wait
+     * on the existing future rather than starting a duplicate fetch.
+     */
+    private void fetchWithDedup(String noradId) {
+        CompletableFuture<Void> myFuture = new CompletableFuture<>();
+        CompletableFuture<Void> existing = inFlightFetches.putIfAbsent(noradId, myFuture);
+
+        if (existing != null) {
+            // Another thread is already fetching — just wait for it
+            log.debug("Fetch already in-flight for NORAD {}, waiting...", noradId);
+            try {
+                existing.get(35, TimeUnit.SECONDS);
+            } catch (Exception e) {
+                log.debug("Wait for in-flight fetch of {} interrupted: {}", noradId, e.getMessage());
+            }
+        } else {
+            // We won the race — we do the actual fetch
+            try {
+                tleFetcherService.fetchSingleSatellite(noradId);
+            } finally {
+                // Always clean up and unblock waiting threads
+                inFlightFetches.remove(noradId);
+                myFuture.complete(null);
+            }
+        }
     }
 
     private static double round(double value, int decimals) {

@@ -20,6 +20,7 @@
     <properties>
         <java.version>17</java.version>
         <jjwt.version>0.12.3</jjwt.version>
+        <netty.version>4.1.100.Final</netty.version>
     </properties>
 
     <dependencies>
@@ -98,6 +99,18 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webflux</artifactId>
+        </dependency>
+
+        <!-- Netty native DNS resolver — fixes CelesTrak timeouts on macOS.
+             Must specify version explicitly; the BOM does not manage the native classifier.
+             Use osx-x86_64 if running on Intel Mac (check with: uname -m) -->
+        <!-- Fix DNS resolution on macOS Apple Silicon (M1/M2/M3) -->
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-resolver-dns-native-macos</artifactId>
+            <version>4.1.100.Final</version>
+            <classifier>osx-aarch_64</classifier>
+            <scope>runtime</scope>
         </dependency>
 
         <!-- Resilience / Rate Limiting -->
