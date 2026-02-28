@@ -207,10 +207,18 @@ public class TleFetcherService {
     public void refreshAllTles() {
         log.info("=== Bulk TLE refresh started (LOCAL FILES) ===");
 
-        loadFromClasspath("tle/active.txt",    "active");
-        loadFromClasspath("tle/starlink.txt",  "starlink");
-        loadFromClasspath("tle/oneweb.txt",    "oneweb");
-        loadFromClasspath("tle/weather.txt",   "weather");
+        // ─── CHANGE 1 of 2 ────────────────────────────────────────────────────
+        // Named category files load FIRST so their satellites get the correct
+        // category label (starlink / oneweb / weather).
+        // active.txt loads LAST — it contains every satellite including those
+        // already saved above, but persistTles() will not overwrite a named
+        // category with "active" (see CHANGE 2 below).
+        // active.txt LAST — fills remaining satellites without overwriting named ones.
+        loadFromClasspath("tle/starlink.txt", "Starlink");  // ← capital S matches frontend
+        loadFromClasspath("tle/oneweb.txt",   "OneWeb");    // ← capital O+W matches frontend
+        loadFromClasspath("tle/weather.txt",  "Weather");   // ← capital W matches frontend
+        loadFromClasspath("tle/active.txt",   "active");    // ← generic fallback, last
+        // ──────────────────────────────────────────────────────────────────────
 
         long satCount = satelliteRepository.count();
         long tleCount = tleRepository.count();
@@ -305,27 +313,69 @@ public class TleFetcherService {
         int skippedDuplicate = 0;
         int skippedError = 0;
 
+        // ─── CHANGE 2 of 2 ────────────────────────────────────────────────────
+        // True for the named category files: starlink, oneweb, weather.
+        // These take priority over the generic "active" label.
+        boolean isNamedCategory = !source.equals("active")
+                && !source.equals("celestrak-single")
+                && !source.equals("n2yo")
+                && !source.equals("space-track");
+        // ──────────────────────────────────────────────────────────────────────
+
         for (TleRaw e : entries) {
             try {
                 TleElements el = TleElements.parse(e.line0(), e.line1(), e.line2());
 
                 if (tleRepository.existsByNoradIdAndEpoch(el.noradId(), el.epoch())) {
                     skippedDuplicate++;
+                    // ── CHANGE 2a ──────────────────────────────────────────────
+                    // TLE is a duplicate but the satellite category may still
+                    // need promoting (e.g. on a second run against existing data).
+                    if (isNamedCategory) {
+                        satelliteRepository.findByNoradId(el.noradId()).ifPresent(sat -> {
+                            boolean currentlyGeneric = "active".equals(sat.getCategory())
+                                    || sat.getCategory() == null;
+                            if (currentlyGeneric) {
+                                sat.setCategory(source);
+                                satelliteRepository.save(sat);
+                            }
+                        });
+                    }
+                    // ────────────────────────────────────────────────────────────
                     continue;
                 }
 
+                // ── CHANGE 2b ──────────────────────────────────────────────────
+                // Original code used orElseGet which never updated an existing sat.
+                // New code: find → create-or-update with category awareness.
                 Satellite sat = satelliteRepository
                         .findByNoradId(el.noradId())
-                        .orElseGet(() -> satelliteRepository.save(
-                                Satellite.builder()
-                                        .noradId(el.noradId())
-                                        .name(el.name() == null || el.name().isBlank()
-                                                ? "SAT-" + el.noradId()
-                                                : el.name())
-                                        .category(source)
-                                        .active(true)
-                                        .build()
-                        ));
+                        .orElse(null);
+
+                if (sat == null) {
+                    // New satellite — always save with current source as category.
+                    sat = satelliteRepository.save(
+                            Satellite.builder()
+                                    .noradId(el.noradId())
+                                    .name(el.name() == null || el.name().isBlank()
+                                            ? "SAT-" + el.noradId()
+                                            : el.name())
+                                    .category(source)
+                                    .active(true)
+                                    .build()
+                    );
+                } else {
+                    // Existing satellite: promote to named category only if it
+                    // currently holds the generic "active" (or null) label.
+                    // This prevents active.txt from overwriting "starlink" → "active".
+                    boolean currentlyGeneric = "active".equals(sat.getCategory())
+                            || sat.getCategory() == null;
+                    if (isNamedCategory && currentlyGeneric) {
+                        sat.setCategory(source);
+                        satelliteRepository.save(sat);
+                    }
+                }
+                // ────────────────────────────────────────────────────────────────
 
                 tleRepository.save(TleRecord.builder()
                         .satellite(sat)
