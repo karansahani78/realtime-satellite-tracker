@@ -206,18 +206,12 @@ public class TleFetcherService {
      */
     public void refreshAllTles() {
         log.info("=== Bulk TLE refresh started (LOCAL FILES) ===");
-
-        // ─── CHANGE 1 of 2 ────────────────────────────────────────────────────
-        // Named category files load FIRST so their satellites get the correct
-        // category label (starlink / oneweb / weather).
-        // active.txt loads LAST — it contains every satellite including those
-        // already saved above, but persistTles() will not overwrite a named
-        // category with "active" (see CHANGE 2 below).
+        // Bulk Loading
         // active.txt LAST — fills remaining satellites without overwriting named ones.
-        loadFromClasspath("tle/starlink.txt", "Starlink");  // ← capital S matches frontend
-        loadFromClasspath("tle/oneweb.txt",   "OneWeb");    // ← capital O+W matches frontend
-        loadFromClasspath("tle/weather.txt",  "Weather");   // ← capital W matches frontend
-        loadFromClasspath("tle/active.txt",   "active");    // ← generic fallback, last
+        loadFromClasspath("tle/starlink.txt", "Starlink");
+        loadFromClasspath("tle/oneweb.txt",   "OneWeb");
+        loadFromClasspath("tle/weather.txt",  "Weather");
+        loadFromClasspath("tle/active.txt",   "active");
         // ──────────────────────────────────────────────────────────────────────
 
         long satCount = satelliteRepository.count();
@@ -313,7 +307,7 @@ public class TleFetcherService {
         int skippedDuplicate = 0;
         int skippedError = 0;
 
-        // ─── CHANGE 2 of 2 ────────────────────────────────────────────────────
+
         // True for the named category files: starlink, oneweb, weather.
         // These take priority over the generic "active" label.
         boolean isNamedCategory = !source.equals("active")
@@ -328,7 +322,7 @@ public class TleFetcherService {
 
                 if (tleRepository.existsByNoradIdAndEpoch(el.noradId(), el.epoch())) {
                     skippedDuplicate++;
-                    // ── CHANGE 2a ──────────────────────────────────────────────
+
                     // TLE is a duplicate but the satellite category may still
                     // need promoting (e.g. on a second run against existing data).
                     if (isNamedCategory) {
@@ -345,7 +339,6 @@ public class TleFetcherService {
                     continue;
                 }
 
-                // ── CHANGE 2b ──────────────────────────────────────────────────
                 // Original code used orElseGet which never updated an existing sat.
                 // New code: find → create-or-update with category awareness.
                 Satellite sat = satelliteRepository
