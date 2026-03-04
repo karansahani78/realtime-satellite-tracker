@@ -131,7 +131,6 @@ public class AuthService {
                 .defaultLongitude(user.getDefaultLongitude())
                 .defaultAltitudeMeters(user.getDefaultAltitudeMeters())
                 .timezoneId(user.getTimezoneId())
-                // ✅ FORCE INITIALIZATION + DETACH
                 .favoriteSatelliteIds(
                         user.getFavoriteSatelliteIds() == null
                                 ? List.of()

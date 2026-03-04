@@ -11,15 +11,15 @@ import org.springframework.stereotype.Component;
 /**
  * Scheduled TLE maintenance tasks.
  *
- * ⚠️ IMPORTANT DESIGN NOTE
+ * IMPORTANT DESIGN NOTE
  * ----------------------------------
  * This system uses an ON-DEMAND TLE strategy.
  *
  * Scheduler is SAFE by design:
- *  - ❌ No aggressive external API calls
- *  - ✅ Clears WebSocket no-TLE suppression cache
- *  - ✅ Prunes old historical data
- *  - ✅ Keeps batch-refresh wiring intact
+ *  - No aggressive external API calls
+ *  - Clears WebSocket no-TLE suppression cache
+ *  - Prunes old historical data
+ *  -Keeps batch-refresh wiring intact
  */
 @Component
 @RequiredArgsConstructor

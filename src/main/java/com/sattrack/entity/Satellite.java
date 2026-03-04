@@ -9,18 +9,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Core satellite metadata entity.
- *
- * noradId is the authoritative identifier used across NORAD, CelesTrak, and
- * Space-Track. We store it as a string (not int) because legacy catalogs
- * occasionally contain alpha-numeric suffixes.
- *
- * Indexing strategy:
- * - noradId: unique index for O(1) TLE lookups
- * - category: composite index with name for category-filtered searches
- * - active: partial index candidate on the DB side (see migration script)
- */
 @Entity
 @Table(name = "satellites", indexes = {
     @Index(name = "idx_satellite_norad_id", columnList = "norad_id", unique = true),

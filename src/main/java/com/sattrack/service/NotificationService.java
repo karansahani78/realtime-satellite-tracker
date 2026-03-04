@@ -41,9 +41,6 @@ public class NotificationService {
     private final SimpMessagingTemplate  wsTemplate;   // WebSocket push
     private final ObjectMapper objectMapper;
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Read
-    // ─────────────────────────────────────────────────────────────────────────
 
     public NotificationPage getForUser(Long userId, int page, int size) {
         Page<Notification> pg = notifRepo.findByUserIdOrderBySentAtDesc(
@@ -154,9 +151,6 @@ public class NotificationService {
                 conj.getNoradIdA(), conj.getNoradIdB(), conj.getMissDistanceKm());
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Internals
-    // ─────────────────────────────────────────────────────────────────────────
 
     private Notification persist(Long userId, NotificationType type,
                                  String title, String message,

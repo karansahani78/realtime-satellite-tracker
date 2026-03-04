@@ -169,7 +169,7 @@ public class OrbitService {
 
         Cache cooldown = cacheManager.getCache("tleFetchCooldown");
 
-        // 🚫 COOLDOWN CHECK
+        //  COOLDOWN CHECK
         if (cooldown != null && cooldown.get(noradId) != null) {
             log.debug("TLE fetch for {} is in cooldown, skipping", noradId);
             return;

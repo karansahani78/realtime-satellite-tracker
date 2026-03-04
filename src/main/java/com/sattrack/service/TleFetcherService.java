@@ -65,7 +65,7 @@ public class TleFetcherService {
 
     private volatile boolean spaceTrackDisabled = false;
 
-    /* ===================== ENDPOINTS ===================== */
+    // APIS END-POINTS
 
     private static final String N2YO_TLE =
             "https://api.n2yo.com/rest/v1/satellite/tle/%s?apiKey=%s";
@@ -80,7 +80,7 @@ public class TleFetcherService {
     private static final String CELESTRAK_SINGLE =
             "https://celestrak.org/NORAD/elements/gp.php?CATNR=%s&FORMAT=TLE";
 
-    /* ===================== STARTUP LOG ===================== */
+    // Startup Logs
 
     @PostConstruct
     void logProviders() {
@@ -100,7 +100,7 @@ public class TleFetcherService {
                 || fetchFromCelestrakSingle(noradId);
     }
 
-    /* ===================== N2YO ===================== */
+    // N2YO
 
     private boolean fetchFromN2yo(String noradId) {
         if (!isEnabled(n2yoApiKey)) return false;
@@ -125,7 +125,7 @@ public class TleFetcherService {
         }
     }
 
-    /* ===================== SPACE-TRACK ===================== */
+    // SPACE-TRACK
 
     private boolean fetchFromSpaceTrack(String noradId) {
         if (spaceTrackDisabled || !isEnabled(spaceTrackUsername)) return false;
@@ -175,7 +175,7 @@ public class TleFetcherService {
         }
     }
 
-    /* ===================== CELESTRAK (SINGLE / FALLBACK) ===================== */
+    /*  CELESTRAK (SINGLE / FALLBACK) */
 
     private boolean fetchFromCelestrakSingle(String noradId) {
         try {
@@ -196,14 +196,8 @@ public class TleFetcherService {
         }
     }
 
-    /* ===================== BULK LOAD (LOCAL FILES) ===================== */
+    //BULK LOAD (LOCAL FILES)
 
-    /**
-     * NOT @Transactional — each file is persisted via self.persistTles()
-     * which opens its own REQUIRES_NEW transaction through the proxy.
-     * If this method were @Transactional, self-calls inside loadFromClasspath
-     * would still join that outer transaction, defeating REQUIRES_NEW.
-     */
     public void refreshAllTles() {
         log.info("=== Bulk TLE refresh started (LOCAL FILES) ===");
         // Bulk Loading
@@ -294,13 +288,6 @@ public class TleFetcherService {
         return list;
     }
 
-    /* ===================== PERSIST (ALWAYS IN OWN TRANSACTION) ===================== */
-
-    /**
-     * REQUIRES_NEW: opens a brand-new transaction independent of any caller.
-     * Must be called via self.persistTles() — NOT this.persistTles() —
-     * otherwise Spring proxy is bypassed and this annotation is ignored.
-     */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public int persistTles(List<TleRaw> entries, String source) {
         int saved = 0;

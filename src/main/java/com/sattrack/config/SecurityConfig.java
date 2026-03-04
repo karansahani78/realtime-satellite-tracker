@@ -90,7 +90,7 @@ public class SecurityConfig {
         return http.build();
     }
 
-    // ✅ Proper CORS for frontend
+    // Proper CORS for frontend
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
 

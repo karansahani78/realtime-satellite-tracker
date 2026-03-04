@@ -35,9 +35,7 @@ public class OrekitPropagator {
     private Frame itrf;
     private OneAxisEllipsoid earth;
 
-    // ─────────────────────────────────────────────────────────────
     // INITIALIZATION (SAFE — no static block)
-    // ─────────────────────────────────────────────────────────────
     @PostConstruct
     public void initOrekit() {
         try {
@@ -66,9 +64,7 @@ public class OrekitPropagator {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────
     // RECORDS
-    // ─────────────────────────────────────────────────────────────
 
     public record SatState(
             double latDeg,
@@ -182,9 +178,7 @@ public class OrekitPropagator {
         return velA.subtract(velB).getNorm() / 1000.0;
     }
 
-    // ─────────────────────────────────────────────────────────────
     // INTERNAL HELPERS
-    // ─────────────────────────────────────────────────────────────
 
     private TLEPropagator buildPropagator(TleRecord tle) {
         return TLEPropagator.selectExtrapolator(

@@ -16,13 +16,6 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.List;
 
-/**
- * Intercepts every request exactly once (OncePerRequestFilter guarantees this
- * even in async dispatches). Validates JWT and populates SecurityContext.
- *
- * Design: stateless – we do NOT call UserDetailsService on every request.
- * Role is embedded in the token, eliminating a DB round-trip per request.
- */
 @Component
 @RequiredArgsConstructor
 @Slf4j

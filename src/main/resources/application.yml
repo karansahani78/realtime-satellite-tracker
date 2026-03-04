@@ -34,9 +34,9 @@ spring:
     user: ${DB_USER:postgres}
     password: ${DB_PASSWORD:postgres}
 
-  # =========================================================
+
   # TASK EXECUTION / SCHEDULING
-  # =========================================================
+
   task:
     scheduling:
       pool:
@@ -47,9 +47,7 @@ spring:
         max-size: 16
         queue-capacity: 100
 
-  # =========================================================
   # EMAIL (SMTP)
-  # =========================================================
   mail:
     host: smtp.gmail.com
     port: 587
@@ -66,9 +64,7 @@ spring:
           timeout: 5000
           writetimeout: 5000
 
-  # =========================================================
   # CACHING
-  # =========================================================
   cache:
     type: caffeine
     caffeine:
@@ -99,24 +95,21 @@ app:
       secret: ${JWT_SECRET}
       expiration-ms: ${JWT_EXPIRATION_MS:86400000}
 
-# =========================================================
 # APP-SPECIFIC MAIL SETTINGS
-# =========================================================
 sattrack:
   mail:
     from: ${MAIL_USER}
     base-url: https://sattrack.app
 
-# =========================================================
+
 # OREKIT DATA
-# =========================================================
 orekit:
   data:
     path: orekit-data
 
-# =========================================================
+
 # TLE PROVIDERS
-# =========================================================
+
 space-track:
   username: ${SPACE_TRACK_USERNAME:}
   password: ${SPACE_TRACK_PASSWORD:}
@@ -124,9 +117,9 @@ space-track:
 n2yo:
   api-key: ${N2YO_API_KEY:}
 
-# =========================================================
+
 # RATE LIMITING
-# =========================================================
+
 resilience4j:
   ratelimiter:
     instances:
@@ -143,9 +136,7 @@ resilience4j:
         limit-refresh-period: 1m
         timeout-duration: 0s
 
-# =========================================================
 # LOGGING
-# =========================================================
 logging:
   level:
     root: INFO

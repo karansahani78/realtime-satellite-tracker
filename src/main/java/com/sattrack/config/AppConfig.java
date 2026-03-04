@@ -73,13 +73,13 @@ public class AppConfig {
         return manager;
     }
 
-    /* ===================== WEBCLIENT (FIXED) ===================== */
+    //WEBCLIENT
 
     @Bean
     public WebClient webClient() {
 
         HttpClient httpClient = HttpClient.create()
-                // ✅ FORCE IPV4 DNS (FIXES N2YO + CELESTRAK)
+                // FORCE IPV4 DNS (FIXES N2YO + CELESTRAK)
                 .resolver(DefaultAddressResolverGroup.INSTANCE)
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 15_000)
                 .responseTimeout(Duration.ofSeconds(30));

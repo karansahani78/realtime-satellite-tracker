@@ -13,13 +13,12 @@ import java.time.Instant;
 
 /**
  * Calculates the Doppler-shifted frequency for a satellite pass.
- *
+
  * Formula:
  *   f_observed = f_nominal × (c / (c + v_radial))
- *
  * where:
- *   c         = speed of light (299,792.458 km/s)
- *   v_radial  = range rate in km/s (positive = satellite moving away)
+ *   c = speed of light (299,792.458 km/s)
+ *   v_radial = range rate in km/s (positive = satellite moving away)
  *
  * Sign convention: rangeRate > 0 means receding → frequency drops.
  */
@@ -60,9 +59,6 @@ public class DopplerService {
         return results;
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Core
-    // ─────────────────────────────────────────────────────────────────────────
 
     private DopplerResult computeAt(DopplerRequest req, Instant at) {
         var tle = tleRepository.findLatestByNoradId(req.getNoradId())

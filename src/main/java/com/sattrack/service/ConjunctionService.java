@@ -36,7 +36,7 @@ public class ConjunctionService {
     private final NotificationService notificationService;
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Public Queries (unchanged behavior)
+    // Public Queries
     // ─────────────────────────────────────────────────────────────────────────
 
     public Page<ConjunctionSummary> getUpcoming(int page, int size) {
@@ -56,7 +56,7 @@ public class ConjunctionService {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Screening Engine (Safe Improvements)
+    // Screening Engine
     // ─────────────────────────────────────────────────────────────────────────
 
     @Transactional
@@ -137,7 +137,7 @@ public class ConjunctionService {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Internal Algorithms (Logic Preserved)
+    // Internal Algorithms
     // ─────────────────────────────────────────────────────────────────────────
 
     private boolean coarseScreen(TleRecord a, TleRecord b, Instant from, Instant to) {

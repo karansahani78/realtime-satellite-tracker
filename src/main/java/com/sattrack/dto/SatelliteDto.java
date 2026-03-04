@@ -6,14 +6,6 @@ import lombok.Builder;
 import java.time.Instant;
 import java.util.List;
 
-/**
- * API response DTOs.
- *
- * WHY separate DTOs from entities?
- * - Entities are JPA-managed; their structure is dictated by DB schema
- * - DTOs are API contracts; they can evolve independently and hide internals
- * - Prevents Jackson from serializing lazy-loaded Hibernate proxies
- */
 public class SatelliteDto {
 
     @Builder

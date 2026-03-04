@@ -31,9 +31,7 @@ public class TrackingScheduler {
     private final PassPredictionRepository passRepo;
     private final NotificationRepository   notifRepo;
 
-    // ─────────────────────────────────────────────────────────────────────────
     // Conjunction screening — every 6 hours
-    // ─────────────────────────────────────────────────────────────────────────
 
     @Scheduled(cron = "0 0 */6 * * *")
     public void runConjunctionScreening() {
@@ -46,10 +44,8 @@ public class TrackingScheduler {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
     // Pass alert dispatcher — every 5 minutes
     // Check if any user's watched satellite will pass within their lead time
-    // ─────────────────────────────────────────────────────────────────────────
 
     @Scheduled(fixedDelay = 5 * 60 * 1000)
     public void dispatchPassAlerts() {
@@ -94,9 +90,8 @@ public class TrackingScheduler {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
     // Pre-compute pass predictions for all watched satellites — daily at 01:00
-    // ─────────────────────────────────────────────────────────────────────────
+
 
     @Scheduled(cron = "0 0 1 * * *")
     public void precomputePassPredictions() {
@@ -124,9 +119,7 @@ public class TrackingScheduler {
         log.info("[SCHEDULER] Pre-compute complete for {} alerts", alerts.size());
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
     // Housekeeping — daily at 03:00
-    // ─────────────────────────────────────────────────────────────────────────
 
     @Scheduled(cron = "0 0 3 * * *")
     public void runHousekeeping() {
@@ -141,10 +134,8 @@ public class TrackingScheduler {
                 expiredPasses, oldNotifs);
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
     // Helpers — fetch user observer location from user record
     // In a real app, inject UserRepository and load from DB
-    // ─────────────────────────────────────────────────────────────────────────
 
     private double getUserLat(Long userId) {
         // TODO: inject UserRepository and load user.getDefaultLatitude()

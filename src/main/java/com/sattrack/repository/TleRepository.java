@@ -15,10 +15,9 @@ import java.util.Optional;
 @Repository
 public interface TleRepository extends JpaRepository<TleRecord, Long> {
 
-    /**
-     * Finds the most recent TLE for a satellite.
-     * Critical hot path – backed by (satellite_id, epoch DESC) index.
-     */
+     //Finds the most recent TLE for a satellite.
+     //Critical hot path – backed by (satellite_id, epoch DESC) index.
+
     @Query("""
             SELECT t FROM TleRecord t
             WHERE t.noradId = :noradId
@@ -37,10 +36,9 @@ public interface TleRepository extends JpaRepository<TleRecord, Long> {
 
     boolean existsByNoradIdAndEpoch(String noradId, Instant epoch);
 
-    /**
-     * Prune old TLE records, keeping only the N most recent per satellite.
-     * Called by scheduled cleanup job to prevent unbounded table growth.
-     */
+     //Prune old TLE records, keeping only the N most recent per satellite.
+     // Called by scheduled cleanup job to prevent unbounded table growth.
+
     @Modifying
     @Query(value = """
             DELETE FROM tle_records

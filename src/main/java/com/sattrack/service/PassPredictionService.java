@@ -35,9 +35,7 @@ public class PassPredictionService {
     private final OrekitPropagator         propagator;
     private final NotificationService      notificationService;
 
-    // ─────────────────────────────────────────────────────────────────────────
     // Public API
-    // ─────────────────────────────────────────────────────────────────────────
 
     @Transactional
     public List<PassSummary> predictPasses(PassRequest req, Long userId) {
@@ -77,9 +75,7 @@ public class PassPredictionService {
                 .toList();
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
     // Core computation
-    // ─────────────────────────────────────────────────────────────────────────
 
     private List<PassPrediction> computeAndPersist(
             TleRecord tle, String satName, PassRequest req,
@@ -219,9 +215,7 @@ public class PassPredictionService {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
     // Mapping
-    // ─────────────────────────────────────────────────────────────────────────
 
     private PassSummary toSummary(PassPrediction p) {
         long dur = p.getDurationSeconds();

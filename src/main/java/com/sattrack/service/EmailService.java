@@ -15,19 +15,7 @@ import org.springframework.stereotype.Service;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
-/**
- * Sends HTML emails for pass alerts and conjunction warnings.
- *
- * Required application.properties:
- *   spring.mail.host=smtp.gmail.com
- *   spring.mail.port=587
- *   spring.mail.username=${MAIL_USER}
- *   spring.mail.password=${MAIL_PASS}
- *   spring.mail.properties.mail.smtp.auth=true
- *   spring.mail.properties.mail.smtp.starttls.enable=true
- *   sattrack.mail.from=noreply@sattrack.app
- *   sattrack.mail.base-url=https://sattrack.app
- */
+
 @Service
 @RequiredArgsConstructor
 @Slf4j

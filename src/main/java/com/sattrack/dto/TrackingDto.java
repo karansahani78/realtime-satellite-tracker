@@ -47,11 +47,11 @@ public class TrackingDto {
         private Double  magnitude;
         private boolean visible;        // naked-eye visible?
 
-        /** Human-friendly: "6 min 23 sec" */
+
         private String  durationLabel;
     }
 
-    // ─── Doppler ─────────────────────────────────────────────────────────────
+    // ─── Doppler
 
     @Data @Builder
     public static class DopplerRequest {
@@ -74,7 +74,7 @@ public class TrackingDto {
         private Instant computedAt;
     }
 
-    // ─── Conjunction ─────────────────────────────────────────────────────────
+    // ─── Conjunction
 
     @Data @Builder
     public static class ConjunctionSummary {
@@ -90,7 +90,7 @@ public class TrackingDto {
         private Instant   computedAt;
     }
 
-    // ─── Notifications ───────────────────────────────────────────────────────
+    // ─── Notifications
 
     @Data @Builder
     public static class NotificationDto {
@@ -112,7 +112,7 @@ public class TrackingDto {
         private long                  totalElements;
     }
 
-    // ─── User Alert Preferences ──────────────────────────────────────────────
+    // ─── User Alert Preferences
 
     @Data @Builder
     public static class AlertPreferenceRequest {

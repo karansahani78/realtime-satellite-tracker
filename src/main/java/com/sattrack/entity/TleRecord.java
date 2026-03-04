@@ -6,18 +6,6 @@ import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.Instant;
 
-/**
- * Stores raw Two-Line Element sets with full history.
- *
- * Why keep history? TLEs degrade over time due to atmospheric drag and
- * orbital maneuvers. Storing history allows:
- * 1. Replaying historical passes (forensic / educational use)
- * 2. Detecting maneuvers (sudden epoch jumps)
- * 3. Auditing data quality from different providers
- *
- * Performance note: most queries only need the latest TLE, so the repository
- * exposes a findLatestByNoradId() method backed by the epoch index.
- */
 @Entity
 @Table(name = "tle_records", indexes = {
     @Index(name = "idx_tle_satellite_epoch", columnList = "satellite_id, epoch DESC"),
