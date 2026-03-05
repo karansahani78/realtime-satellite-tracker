@@ -1184,6 +1184,6 @@ Built with ☕ Java + ⚛ React
 
 TLE data from [CelesTrak](https://celestrak.org) · SGP4 algorithm by [Vallado et al. (2006)](https://celestrak.org/publications/AIAA/2006-6753/)
 
-**⭐ Star this repo if you found it useful**
+**Give ⭐ Star this repo if you found it useful**
 
 </div>
