@@ -22,7 +22,7 @@
 
 | 🛰 Satellites Tracked | ⚡ Refresh Rate | 🎯 SGP4 Accuracy | 🔭 Prediction Window | 📡 TLE Sync |
 |:---------------------:|:---------------:|:----------------:|:--------------------:|:-----------:|
-| **1,000+** | **5 seconds** | **~2 km (LEO)** | **72 hours** | **Every 30 min** |
+| **14,000+** | **5 seconds** | **~2 km (LEO)** | **72 hours** | **Every 30 min** |
 
 </div>
 
