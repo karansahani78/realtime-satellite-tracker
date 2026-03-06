@@ -1,6 +1,6 @@
 <div align="center">
      
-![orbitview-animation](https://github.com/user-attachments/assets/64d1ac9c-db68-4d6e-b539-e250c5742eb7)
+<img src="https://github.com/user-attachments/assets/64d1ac9c-db68-4d6e-b539-e250c5742eb7" width="900" alt="orbitview-animation"/>
 
 # 🛰 OrbitView — Satellite Tracking Platform
 
