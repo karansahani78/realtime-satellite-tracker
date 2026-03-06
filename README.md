@@ -1,10 +1,6 @@
 <div align="center">
 
-<p align="center">
-  <a href="https://github.com/karansahani78/sattrack/blob/main/docs/orbitview-animation.gif">
-    <img src="https://raw.githubusercontent.com/karansahani78/sattrack/main/docs/orbitview-animation.gif" width="900"/>
-  </a>
-</p>
+<img src="./docs/orbitview-animation.svg" width="900"/>
 
 # 🛰 OrbitView — Satellite Tracking Platform
 
